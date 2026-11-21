@@ -46,8 +46,9 @@ button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity
 .message-row.user{align-self:flex-start;flex-direction:row-reverse}.message-row.bot{align-self:flex-end}
 .avatar{width:30px;height:30px;flex:0 0 30px;border-radius:11px;display:grid;place-items:center;background:#1b5873;font-size:15px}
 .user .avatar{background:#8b522d}
-.bubble{padding:13px 16px;border-radius:19px;background:linear-gradient(145deg,#12334a,#10283b);border:1px solid #7ecfe51c;line-height:1.95;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 25px #0002}
-.user .bubble{background:linear-gradient(145deg,#125b75,#16466a);border-color:#55d8ed35}
+.bubble{padding:13px 16px;border-radius:19px;background:linear-gradient(145deg,#12334a,#10283b);border:1px solid #7ecfe51c;line-height:1.95;font-size:13px;overflow-wrap:anywhere;box-shadow:0 8px 25px #0002}
+.markdown{white-space:normal;direction:rtl;text-align:right}.markdown p{margin:0 0 10px}.markdown p:last-child{margin-bottom:0}.markdown h1,.markdown h2,.markdown h3,.markdown h4{line-height:1.6;margin:14px 0 7px;color:#eafaff}.markdown h1{font-size:19px}.markdown h2{font-size:17px}.markdown h3{font-size:15px}.markdown ul,.markdown ol{padding-right:23px;margin:7px 0 11px}.markdown li{margin:4px 0}.markdown strong{color:#fff;font-weight:800}.markdown em{color:#bdebf2}.markdown blockquote{margin:9px 0;padding:8px 12px;border-right:3px solid var(--cyan);background:#ffffff08;border-radius:8px;color:#c6dce8}.markdown pre{direction:ltr;text-align:left;white-space:pre;overflow:auto;background:#06131f;border:1px solid #ffffff16;border-radius:11px;padding:12px;margin:10px 0;font:12px/1.7 ui-monospace,monospace}.markdown code{direction:ltr;unicode-bidi:embed;background:#06131f;color:#9cecf2;padding:2px 5px;border-radius:5px;font: .92em ui-monospace,monospace}.markdown pre code{padding:0;background:transparent;color:#d8f5fa}.markdown hr{border:0;border-top:1px solid #ffffff20;margin:13px 0}.markdown a{color:#72e5f0;text-decoration:underline;overflow-wrap:anywhere}.markdown .math-block{direction:ltr;text-align:center;overflow-x:auto;padding:8px 0}.markdown .math-inline{direction:ltr;unicode-bidi:isolate}
+.user .bubble{background:linear-gradient(145deg,#125b75,#16466a);border-color:#55d8ed35}.message-plain{white-space:pre-wrap}
 .msg-time{font-size:9px;color:#8ba8ba;margin-top:7px}
 .typing{display:flex;gap:5px;padding:5px}.typing i{width:6px;height:6px;background:var(--cyan);border-radius:50%;animation:blink 1s infinite}
 .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
@@ -70,6 +71,14 @@ button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity
 .toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);background:#173d50;border:1px solid #55d7e455;border-radius:12px;padding:11px 16px;font-size:12px;z-index:20;display:none;max-width:90%;text-align:center}
 @media(max-width:760px){.app{display:block;padding:0}.sidebar{display:none}.main{min-height:100dvh;border:0;border-radius:0}.topbar{padding:13px 15px}.mini-logo{display:grid;width:39px;height:39px;border-radius:13px;place-items:center;background:linear-gradient(145deg,#39d9e7,#1769a5);font-size:22px}.chat{padding:19px 13px}.message-row{max-width:96%}.welcome{padding:15px 3px}.orb{width:88px;height:88px;font-size:46px}.composer-wrap{padding-left:10px;padding-right:10px}.top-actions .desktop-only{display:none}}
 </style>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] },
+  startup: { typeset: false }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
 <div class="app">
@@ -148,11 +157,52 @@ const box=$("historyList");box.innerHTML="";
 chats.slice().sort((a,b)=>b.updated-a.updated).forEach(c=>{const button=document.createElement("button");button.className="history-item"+(c.id===activeId?" active":"");button.textContent=c.title||"گفتگو";button.onclick=()=>{activeId=c.id;renderAll()};box.appendChild(button)});
 }
 function timeText(time){return new Date(time||Date.now()).toLocaleTimeString("fa-IR",{hour:"2-digit",minute:"2-digit"})}
+function escapeHTML(value){
+return String(value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+function renderInlineMarkdown(source){
+let text=escapeHTML(source);
+const code=[];
+text=text.replace(/`([^`\n]+)`/g,(_,v)=>{const key=`@@INLINE${code.length}@@`;code.push(`<code>${v}</code>`);return key;});
+text=text.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+text=text.replace(/__(.+?)__/g,"<strong>$1</strong>");
+text=text.replace(/\*(?!\s)(.+?)(?<!\s)\*/g,"<em>$1</em>");
+text=text.replace(/_(?!\s)(.+?)(?<!\s)_/g,"<em>$1</em>");
+text=text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+text=text.replace(/\$([^$\n]+)\$/g,'<span class="math-inline">\\($1\\)</span>');
+code.forEach((html,i)=>{text=text.replace(`@@INLINE${i}@@`,html)});
+return text;
+}
+function renderMarkdown(source){
+const lines=String(source??"").replace(/\r\n?/g,"\n").split("\n");
+const out=[];let paragraph=[],listType=null,listItems=[],inCode=false,codeLines=[];
+const flushParagraph=()=>{if(paragraph.length){out.push(`<p>${paragraph.map(renderInlineMarkdown).join("<br>")}</p>`);paragraph=[]}};
+const flushList=()=>{if(listType){out.push(`<${listType}>${listItems.map(x=>`<li>${renderInlineMarkdown(x)}</li>`).join("")}</${listType}>`);listType=null;listItems=[]}};
+for(const line of lines){
+if(/^\s*```/.test(line)){flushParagraph();flushList();if(inCode){out.push(`<pre><code>${escapeHTML(codeLines.join("\n"))}</code></pre>`);codeLines=[];inCode=false}else inCode=true;continue}
+if(inCode){codeLines.push(line);continue}
+if(!line.trim()){flushParagraph();flushList();continue}
+let m;
+if((m=line.match(/^\s{0,3}(#{1,4})\s+(.+)$/))){flushParagraph();flushList();const level=m[1].length;out.push(`<h${level}>${renderInlineMarkdown(m[2])}</h${level}>`);continue}
+if(/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line)){flushParagraph();flushList();out.push("<hr>");continue}
+if((m=line.match(/^\s*>\s?(.*)$/))){flushParagraph();flushList();out.push(`<blockquote>${renderInlineMarkdown(m[1])}</blockquote>`);continue}
+if((m=line.match(/^\s*[-*+]\s+(.+)$/))){flushParagraph();if(listType!=="ul"){flushList();listType="ul"}listItems.push(m[1]);continue}
+if((m=line.match(/^\s*\d+[.)]\s+(.+)$/))){flushParagraph();if(listType!=="ol"){flushList();listType="ol"}listItems.push(m[1]);continue}
+flushList();paragraph.push(line);
+}
+if(inCode)out.push(`<pre><code>${escapeHTML(codeLines.join("\n"))}</code></pre>`);
+flushParagraph();flushList();
+return out.join("");
+}
+function typesetMath(element){
+if(window.MathJax?.typesetPromise){window.MathJax.typesetPromise([element]).catch(()=>{});}
+}
+
 function addBubble(role,text,at=Date.now()){
 const row=document.createElement("div");row.className="message-row "+(role==="user"?"user":"bot");
 const avatar=document.createElement("div");avatar.className="avatar";avatar.textContent=role==="user"?"ش":"🌊";
 const bubble=document.createElement("div");bubble.className="bubble";
-const content=document.createElement("div");content.textContent=text;
+const content=document.createElement("div");content.className=role==="assistant"?"markdown":"message-plain";if(role==="assistant"){content.innerHTML=renderMarkdown(text);typesetMath(content)}else{content.textContent=text;}
 const time=document.createElement("div");time.className="msg-time";time.textContent=timeText(at);
 bubble.append(content,time);row.append(avatar,bubble);chatEl.appendChild(row);chatEl.scrollTop=chatEl.scrollHeight;
 }
@@ -169,99 +219,4 @@ if(files.length){const chip=document.createElement("span");chip.className="file-
 }
 function renderAll(){renderHistory();renderChat();renderFiles()}
 function relevantKnowledge(question){
-const words=question.toLowerCase().split(/\s+/).filter(w=>w.length>2),hits=[];
-for(const file of files){const lower=file.text.toLowerCase();let score=0;for(const word of words)if(lower.includes(word))score++;if(score)hits.push({name:file.name,score,snippet:file.text.slice(0,MAX_FILE_CONTEXT)})}
-return hits.sort((a,b)=>b.score-a.score).slice(0,2);
-}
-function showTyping(){
-const row=document.createElement("div");row.className="message-row bot";row.id="typing";
-const avatar=document.createElement("div");avatar.className="avatar";avatar.textContent="🌊";
-const bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML='<div style="color:#9fc4d7;font-size:11px;margin-bottom:6px">موج AI در حال فکر کردن است</div><div class="typing"><i></i><i></i><i></i></div>';
-row.append(avatar,bubble);chatEl.appendChild(row);chatEl.scrollTop=chatEl.scrollHeight;
-}
-function setSending(value){sending=value;$("send").disabled=value;$("send").textContent=value?"…":"➤";input.disabled=value}
-function buildHistory(chat,knowledge){
-const history=chat.messages.slice(-MAX_HISTORY).map(m=>({role:m.role,content:String(m.content||"").slice(0,MAX_MESSAGE_LENGTH)}));
-if(knowledge.length&&history.length){
-const extra="\n\nمحتوای مرتبط از فایل‌های کاربر:\n"+knowledge.map(k=>"فایل: "+k.name+"\n"+k.snippet).join("\n\n");
-const last=history[history.length-1];last.content=last.content.slice(0,Math.max(0,MAX_MESSAGE_LENGTH-extra.length))+extra;
-}
-return history;
-}
-async function sendMessage(text){
-if(sending)return;
-text=(text??input.value).trim();if(!text)return;
-if(text.length>MAX_MESSAGE_LENGTH){toast("پیام بیش از حد طولانی است.");return}
-let chat=activeChat();if(!chat){newChat();chat=activeChat()}
-input.value="";input.style.height="auto";
-const userMessage={role:"user",content:text,at:Date.now()};
-chat.messages.push(userMessage);chat.updated=Date.now();if(chat.messages.length===1)chat.title=text.slice(0,34);
-saveChats();renderAll();showTyping();setSending(true);setStatus("در حال اتصال به هوش مصنوعی...");
-const knowledge=relevantKnowledge(text),history=buildHistory(chat,knowledge);
-requestController=new AbortController();
-const timeout=setTimeout(()=>requestController?.abort(),REQUEST_TIMEOUT);
-try{
-const response=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:history}),signal:requestController.signal,cache:"no-store"});
-let data;try{data=await response.json()}catch{throw new Error("پاسخ سرور قابل خواندن نیست.")}
-if(!response.ok)throw new Error(data?.error||"خطای سرور: "+response.status);
-if(data?.ok===false)throw new Error(data.error||"سرور درخواست را نپذیرفت.");
-if(typeof data?.answer!=="string"||!data.answer.trim())throw new Error("پاسخ معتبر از هوش مصنوعی دریافت نشد.");
-const answer=data.answer.trim(),botMessage={role:"assistant",content:answer,at:Date.now()};
-chat.messages.push(botMessage);chat.updated=Date.now();saveChats();lastAnswer=answer;
-$("typing")?.remove();addBubble("assistant",answer,botMessage.at);renderHistory();setStatus("آنلاین · پاسخ دریافت شد");
-}catch(error){
-$("typing")?.remove();
-let reason;
-if(error.name==="AbortError")reason="زمان انتظار برای دریافت پاسخ تمام شد. لطفاً دوباره تلاش کن.";
-else if(!navigator.onLine)reason="اتصال اینترنت گوشی قطع است.";
-else reason="خطا در ارتباط با سرور: "+String(error.message||error).slice(0,180);
-let localAnswer=knowledge.length?"اتصال آنلاین برقرار نشد، اما این مطالب از فایل‌های کتابخانه پیدا شدند:\n\n"+knowledge.map(k=>"فایل: "+k.name+"\n"+k.snippet.slice(0,700)).join("\n\n")+"\n\nخطا: "+reason:reason+"\n\nپیام تو در تاریخچه ذخیره شده است. پس از بررسی اتصال می‌توانی دوباره آن را ارسال کنی.";
-const errorMessage={role:"assistant",content:localAnswer,at:Date.now()};
-chat.messages.push(errorMessage);chat.updated=Date.now();saveChats();lastAnswer=localAnswer;addBubble("assistant",localAnswer,errorMessage.at);renderHistory();setStatus("مشکل در دریافت پاسخ · "+reason,"offline");
-}finally{clearTimeout(timeout);requestController=null;setSending(false);input.focus()}
-}
-function openFiles(){$("fileModal").style.display="flex";renderFiles()}
-async function handleFiles(fileList){
-for(const file of fileList){
-if(file.size>700000){toast("حجم فایل باید کمتر از ۷۰۰ کیلوبایت باشد: "+file.name);continue}
-const ext=file.name.split(".").pop().toLowerCase();if(!["txt","md","csv","json"].includes(ext)){toast("فقط فایل‌های TXT، MD، CSV و JSON پشتیبانی می‌شوند.");continue}
-try{const content=await file.text();files=files.filter(f=>f.name!==file.name);files.push({name:file.name,text:content,added:Date.now()})}catch{toast("خواندن فایل ناموفق بود: "+file.name)}
-}
-try{localStorage.setItem(FILES_KEY,JSON.stringify(files));renderFiles();toast("فایل‌ها در گوشی ذخیره شدند.")}catch{toast("حافظه مرورگر پر شده است.")}
-}
-async function checkServer(){
-try{const response=await fetch(HEALTH_URL,{cache:"no-store"});if(!response.ok)throw new Error("HTTP "+response.status);const data=await response.json();if(data.status==="ready")setStatus("سرور آنلاین و آماده");else setStatus("سرور پاسخ غیرمنتظره داد","offline")}
-catch{setStatus("اتصال سرور بررسی نشد","offline")}
-}
-$("send").onclick=()=>sendMessage();
-input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();sendMessage(input.value)}});
-input.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,130)+"px"});
-$("newChat").onclick=$("newChatTop").onclick=newChat;
-$("clearAll").onclick=()=>{if(confirm("تمام گفتگوهای ذخیره‌شده پاک شوند؟")){chats=[];localStorage.removeItem(CHATS_KEY);newChat()}};
-$("attach").onclick=()=>openFiles();$("filesTop").onclick=()=>openFiles();$("openFiles").onclick=openFiles;
-$("closeModal").onclick=()=>$("fileModal").style.display="none";
-$("chooseFiles").onclick=()=>$("modalFileInput").click();
-$("fileInput").onchange=event=>{handleFiles(event.target.files);event.target.value=""};
-$("modalFileInput").onchange=event=>{handleFiles(event.target.files);event.target.value=""};
-$("fileModal").addEventListener("click",event=>{if(event.target.id==="fileModal")$("fileModal").style.display="none"});
-$("offlineInfo").onclick=()=>toast("آفلاین: گفتگوهای ذخیره‌شده و فایل‌های کتابخانه در دسترس‌اند؛ پاسخ‌گویی عمومی آفلاین فعال نیست.");
-document.addEventListener("click",event=>{const button=event.target.closest("[data-prompt]");if(button)sendMessage(button.dataset.prompt)});
-$("read").onclick=()=>{
-if(!lastAnswer){toast("هنوز پاسخی برای خواندن وجود ندارد.");return}
-if(!("speechSynthesis"in window)){toast("خواندن صوتی در این مرورگر پشتیبانی نمی‌شود.");return}
-const utterance=new SpeechSynthesisUtterance(lastAnswer);utterance.lang="fa-IR";utterance.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(utterance);
-};
-$("mic").onclick=()=>{
-const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(!SpeechRecognition){toast("تشخیص گفتار در این مرورگر پشتیبانی نمی‌شود.");return}
-if(recognition){recognition.stop();recognition=null;return}
-recognition=new SpeechRecognition();recognition.lang="fa-IR";recognition.interimResults=false;
-recognition.onresult=event=>{input.value=event.results[0][0].transcript;sendMessage()};
-recognition.onerror=()=>toast("خطا در دریافت صدا. مجوز میکروفون و اینترنت را بررسی کن.");
-recognition.onend=()=>{recognition=null};
-try{recognition.start();toast("در حال شنیدن صدای تو...")}catch{toast("میکروفون آماده نیست.")}
-};
-loadData();renderAll();checkServer();
-</script>
-</body>
-</html>
+const words=question.toLowerCase().split(/\s+/).filter(w=>w.length>2),hits=[]
